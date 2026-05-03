@@ -2,6 +2,7 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "ir/irgen.h"
+#include "codegen/ptxgen.h"
 using namespace std;
 // ---------------- TOKEN PRINT ----------------
 string tokenToString(TokenType type) {
@@ -89,6 +90,9 @@ int main() {
         auto ir = irgen.generateIR(tree);
 
         printIR(ir);
+
+        PTXGenerator ptx;
+        ptx.generate(ir);
     }
     catch (const exception& e) {
         cerr << "Error: " << e.what() << endl;
