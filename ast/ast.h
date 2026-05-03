@@ -1,7 +1,10 @@
 #ifndef AST_H
 #define AST_H
-#include <bits/stdc++.h>
+
+#include <string>
+
 using namespace std;
+
 enum NodeType {
     NUM,
     VAR,
@@ -9,7 +12,14 @@ enum NodeType {
     SUB,
     MULN,
     DIVN,
-    ASSIGNN
+    ASSIGNN,
+    // --- NEW GPU NODE TYPES ---
+    THREAD_IDXN,
+    BLOCK_IDXN,
+    SYNCN,
+    // --------------------------
+    BLOCKN,
+    LOADN, STOREN
 };
 
 struct AST {
@@ -22,4 +32,5 @@ struct AST {
         : type(t), value(val), left(nullptr), right(nullptr) {
     }
 };
+
 #endif

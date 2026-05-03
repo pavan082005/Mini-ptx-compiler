@@ -1,61 +1,63 @@
 #include "irgen.h"
 
-// Constructor
-IRGenerator::IRGenerator() {
-    tempCount = 1;
-}
+IRGenerator::IRGenerator() : tempCount(1) {}
 
-// Generate new temporary variable (t1, t2, ...)
-std::string IRGenerator::newTemp() {
-    return "t" + std::to_string(tempCount++);
-}
+std::string IRGenerator::newTemp() { return "t" + std::to_string(tempCount++); }
 
-// Main recursive function
 std::string IRGenerator::generate(AST* node, std::vector<IR>& code) {
     if (!node) return "";
 
-    // Case 1: Number
-    if (node->type == NUM) {
-        return node->value;  // e.g., "5"
+    if (node->type == BLOCKN) {
+        generate(node->left, code);
+        generate(node->right, code);
+        return "";
     }
 
-    // Case 2: Variable
-    if (node->type == VAR) {
-        return node->value;  // e.g., "a"
+    if (node->type == NUM || node->type == VAR) return node->value;
+
+    if (node->type == THREAD_IDXN || node->type == BLOCK_IDXN) {
+        std::string t = newTemp();
+        code.push_back({ "mov", node->value, "", t });
+        return t;
     }
 
-    // Case 3: Assignment
+    if (node->type == SYNCN) {
+        code.push_back({ "sync", "", "", "" });
+        return "";
+    }
+
+    if (node->type == LOADN) {
+        std::string idx = generate(node->left, code);
+        std::string t = newTemp();
+        code.push_back({ "load", node->value, idx, t });
+        return t;
+    }
+
+    if (node->type == STOREN) {
+        std::string idx = generate(node->left, code);
+        std::string val = generate(node->right, code);
+        code.push_back({ "store", val, idx, node->value });
+        return "";
+    }
+
     if (node->type == ASSIGNN) {
-        std::string right = generate(node->right, code);
-        std::string left = node->left->value;
-
-        code.push_back({ "mov", right, "", left });
-        return left;
+        std::string r = generate(node->right, code);
+        code.push_back({ "mov", r, "", node->left->value });
+        return node->left->value;
     }
 
-    // Case 4: Binary operations
-    std::string left = generate(node->left, code);
-    std::string right = generate(node->right, code);
+    std::string l = generate(node->left, code);
+    std::string r = generate(node->right, code);
+    std::string t = newTemp();
 
-    std::string temp = newTemp();
+    if (node->type == ADD) code.push_back({ "add", l, r, t });
+    else if (node->type == SUB) code.push_back({ "sub", l, r, t });
+    else if (node->type == MULN) code.push_back({ "mul", l, r, t });
+    else if (node->type == DIVN) code.push_back({ "div", l, r, t });
 
-    if (node->type == ADD) {
-        code.push_back({ "add", left, right, temp });
-    }
-    else if (node->type == SUB) {
-        code.push_back({ "sub", left, right, temp });
-    }
-    else if (node->type == MULN) {
-        code.push_back({ "mul", left, right, temp });
-    }
-    else if (node->type == DIVN) {
-        code.push_back({ "div", left, right, temp });
-    }
-
-    return temp;
+    return t;
 }
 
-// Entry function
 std::vector<IR> IRGenerator::generateIR(AST* root) {
     std::vector<IR> code;
     generate(root, code);

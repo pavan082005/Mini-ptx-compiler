@@ -1,102 +1,93 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <vector>
+#include <string>
 #include "lexer/lexer.h"
+#include "ast/ast.h"
 #include "parser/parser.h"
 #include "ir/irgen.h"
 #include "codegen/ptxgen.h"
+
 using namespace std;
-// ---------------- TOKEN PRINT ----------------
-string tokenToString(TokenType type) {
-    switch (type) {
-    case IDENT: return "IDENT";
-    case NUMBER: return "NUMBER";
-    case PLUS: return "PLUS";
-    case MINUS: return "MINUS";
-    case MUL: return "MUL";
-    case DIV: return "DIV";
-    case ASSIGN: return "ASSIGN";
-    case LPAREN: return "LPAREN";
-    case RPAREN: return "RPAREN";
-    case END: return "END";
-    default: return "UNKNOWN";
-    }
-}
 
-void printTokens(const vector<Token>& tokens) {
-    cout << "\nTokens:\n";
-    for (const auto& token : tokens) {
-        cout << tokenToString(token.type)
-            << " (" << token.value << ")\n";
-    }
-}
-
-// ---------------- AST PRINT ----------------
-void printAST(AST* node, int depth = 0) {
+/**
+ * Helper to visualize the AST - Updated for Phase 4
+ */
+void printAST(AST* node, int level = 0) {
     if (!node) return;
+    for (int i = 0; i < level; ++i) cout << "  ";
 
-    for (int i = 0; i < depth; i++) cout << "  ";
+    if (node->type == BLOCKN) cout << "[BLOCK]";
+    else if (node->type == LOADN) cout << "[LOAD: " << node->value << "]";
+    else if (node->type == STOREN) cout << "[STORE: " << node->value << "]";
+    else if (node->type == ASSIGNN) cout << "[ASSIGN]";
+    else cout << node->value;
 
-    switch (node->type) {
-    case NUM: cout << "NUM(" << node->value << ")\n"; break;
-    case VAR: cout << "VAR(" << node->value << ")\n"; break;
-    case ADD: cout << "ADD\n"; break;
-    case SUB: cout << "SUB\n"; break;
-    case MULN: cout << "MUL\n"; break;
-    case DIVN: cout << "DIV\n"; break;
-    case ASSIGNN: cout << "ASSIGN\n"; break;
-    }
-
-    printAST(node->left, depth + 1);
-    printAST(node->right, depth + 1);
+    cout << "\n";
+    printAST(node->left, level + 1);
+    printAST(node->right, level + 1);
 }
 
-// ---------------- IR PRINT ----------------
-void printIR(const vector<IR>& code) {
-    cout << "\nIR:\n";
-    for (const auto& instr : code) {
-        if (instr.op == "mov") {
-            cout << instr.result << " = " << instr.arg1 << "\n";
-        }
-        else {
-            cout << instr.result << " = "
-                << instr.arg1 << " "
-                << instr.op << " "
-                << instr.arg2 << "\n";
-        }
-    }
-}
-
-// ---------------- MAIN ----------------
-int main() {
-    string input;
-
-    cout << "Enter expression: ";
-    getline(cin, input);
+void compile(string sourceCode) {
+    cout << "\n====================================" << endl;
+    cout << "SOURCE CODE:" << endl;
+    cout << sourceCode << endl;
+    cout << "====================================" << endl;
 
     try {
-        // Phase 1: Lexer
-        Lexer lexer(input);
-        auto tokens = lexer.tokenize();
-        printTokens(tokens);
+        // 1. Lexical Analysis
+        Lexer lexer(sourceCode);
+        vector<Token> tokens = lexer.tokenize();
 
-        // Phase 2: Parser → AST
+        // 2. Parsing
         Parser parser(tokens);
         AST* tree = parser.parse();
 
-        cout << "\nAST:\n";
+        cout << "\nAST STRUCTURE:" << endl;
         printAST(tree);
 
-        // Phase 3: IR Generation
-        IRGenerator irgen;
-        auto ir = irgen.generateIR(tree);
+        // 3. IR Generation
+        IRGenerator irGen;
+        vector<IR> intermediateCode = irGen.generateIR(tree);
 
-        printIR(ir);
+        // 4. PTX Code Generation
+        cout << "\nGENERATED PTX ASSEMBLY:" << endl;
+        PTXGenerator ptxGen;
+        ptxGen.generate(intermediateCode);
 
-        PTXGenerator ptx;
-        ptx.generate(ir);
     }
     catch (const exception& e) {
-        cerr << "Error: " << e.what() << endl;
+        cerr << "\nCOMPILER ERROR: " << e.what() << endl;
     }
+}
+
+int main() {
+    // TEST 1: The Vector Scale (The most common GPU operation)
+    // This tests: 
+    // - Index calculation
+    // - Loading from Global Memory
+    // - Scalar multiplication
+    // - Storing back to Global Memory
+    string vectorScale =
+        "i = threadIdx.x; "
+        "val = input[i]; "
+        "res = val * 10; "
+        "output[i] = res;";
+
+    cout << "--- TEST 1: VECTOR SCALE ---" << endl;
+    compile(vectorScale);
+
+    cout << "\n\n";
+
+    // TEST 2: The Multi-Array Test
+    // This tests if the compiler can handle two different arrays 
+    // and a constant in the same line of code.
+    string multiArray =
+        "id = threadIdx.x; "
+        "temp = dataA[id] + dataB[id]; "
+        "result[id] = temp;";
+
+    cout << "--- TEST 2: MULTI-ARRAY ADDITION ---" << endl;
+    compile(multiArray);
 
     return 0;
 }
